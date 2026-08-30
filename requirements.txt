@@ -1,0 +1,24 @@
+# 底座平台依赖
+
+# 核心依赖
+python>=3.8
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+
+# 数据处理
+pandas>=1.3.0
+numpy>=1.21.0
+
+# 系统监控
+psutil>=5.9.0
+
+# 日志
+loguru>=0.5.0
+
+# 配置管理
+python-dotenv>=0.19.0
+
+# 测试
+pytest>=6.2.0
+httpx>=0.24.0
