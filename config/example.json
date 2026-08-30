@@ -1,0 +1,53 @@
+{
+  "system": {
+    "name": "DeepSeeHarness底座",
+    "version": "1.0.0",
+    "max_projects": 10,
+    "max_workers": 50
+  },
+  "office_area": {
+    "slots": [
+      {"id": "desk-001", "type": "standard", "capacity": 1},
+      {"id": "desk-002", "type": "standard", "capacity": 1},
+      {"id": "desk-003", "type": "premium", "capacity": 1}
+    ]
+  },
+  "project_templates": [
+    {
+      "name": "数据分析项目",
+      "dependencies": ["pandas", "numpy", "matplotlib", "seaborn"],
+      "description": "用于数据清洗、分析和可视化",
+      "worker_requirements": ["data_analyst", "visualization_specialist"]
+    },
+    {
+      "name": "Web应用开发",
+      "dependencies": ["flask", "sqlalchemy", "celery"],
+      "description": "Web应用全栈开发",
+      "worker_requirements": ["backend_dev", "frontend_dev", "devops"]
+    },
+    {
+      "name": "AI模型训练",
+      "dependencies": ["tensorflow", "keras", "scikit-learn"],
+      "description": "机器学习模型训练和部署",
+      "worker_requirements": ["ml_engineer", "data_engineer"]
+    }
+  ],
+  "worker_types": {
+    "data_analyst": {
+      "capabilities": ["data_analysis", "statistics", "reporting"],
+      "description": "数据分析专家"
+    },
+    "code_engineer": {
+      "capabilities": ["coding", "debugging", "optimization"],
+      "description": "代码开发工程师"
+    },
+    "project_manager": {
+      "capabilities": ["planning", "coordination", "communication"],
+      "description": "项目经理"
+    },
+    "qa_engineer": {
+      "capabilities": ["testing", "quality_assurance", "automation"],
+      "description": "质量保证工程师"
+    }
+  }
+}
