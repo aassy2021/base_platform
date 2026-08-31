@@ -8,11 +8,14 @@ from pathlib import Path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import uvicorn
+import zipfile
+import io
+import json
 from datetime import datetime
 
 # 导入底座核心模块
@@ -95,6 +98,69 @@ async def get_project(project_id: str):
         "dependencies": project.dependencies,
         "description": project.config.get('description', '')
     }
+
+@app.post("/api/projects/import")
+async def import_project_zip(file: UploadFile = File(...)):
+    """导入 zip 压缩包作为项目"""
+    if not file.filename.endswith('.zip'):
+        raise HTTPException(status_code=400, detail="只支持 .zip 格式")
+
+    try:
+        content = await file.read()
+        zip_buffer = io.BytesIO(content)
+
+        project_name = file.filename.replace('.zip', '')
+        description = ''
+        dependencies = []
+        file_list = []
+
+        with zipfile.ZipFile(zip_buffer, 'r') as zf:
+            # 列出所有文件
+            file_list = zf.namelist()
+
+            # 尝试从项目配置文件读取元数据
+            config_names = ['project.json', 'config.json', 'package.json', 'setup.py', 'pyproject.toml']
+            for name in file_list:
+                basename = name.split('/')[-1]
+                if basename == 'project.json':
+                    try:
+                        data = json.loads(zf.read(name))
+                        project_name = data.get('name', project_name)
+                        description = data.get('description', '')
+                        dependencies = data.get('dependencies', [])
+                    except Exception:
+                        pass
+                elif basename == 'package.json':
+                    try:
+                        data = json.loads(zf.read(name))
+                        project_name = data.get('name', project_name) or project_name
+                        description = data.get('description', '') or description
+                        dependencies = list(data.get('dependencies', {}).keys())
+                    except Exception:
+                        pass
+
+        # 创建项目
+        project_id = base_system.project_manager.create_project({
+            'name': project_name,
+            'description': description or f'从 {file.filename} 导入',
+            'dependencies': dependencies,
+            'zip_file': file.filename,
+            'file_count': len(file_list)
+        })
+        base_system.project_manager.mount_project(project_id, base_system.resource_pool)
+
+        return {
+            "success": True,
+            "project_id": project_id,
+            "name": project_name,
+            "file_count": len(file_list),
+            "message": f"项目 '{project_name}' 已从 {file.filename} 导入"
+        }
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="无效的 zip 文件")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导入失败: {str(e)}")
+
 
 @app.delete("/api/projects/{project_id}")
 async def delete_project(project_id: str):

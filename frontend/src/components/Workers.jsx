@@ -9,7 +9,7 @@ const Workers = ({ onNavigate }) => {
   const [showModal, setShowModal] = useState(false)
   const [newWorker, setNewWorker] = useState({ worker_type: '', capabilities: '' })
   const [showImportModal, setShowImportModal] = useState(false)
-  const [importMode, setImportMode] = useState('json')
+  const [importMode, setImportMode] = useState('json') // json = 文本粘贴, file = 本地JSON文件
   const [importData, setImportData] = useState('')
   const [importFile, setImportFile] = useState(null)
   const [importing, setImporting] = useState(false)
@@ -66,17 +66,25 @@ const Workers = ({ onNavigate }) => {
     setImporting(true)
     try {
       let workerData
+      
       if (importMode === 'json') {
+        // JSON 文本模式：从输入框解析
+        if (!importData.trim()) {
+          alert('请输入 JSON 数据')
+          setImporting(false)
+          return
+        }
         try {
           workerData = JSON.parse(importData)
         } catch (e) {
-          alert('JSON格式错误，请检查输入')
+          alert('JSON 格式错误，请检查输入')
           setImporting(false)
           return
         }
       } else {
+        // 文件模式：读取上传的 JSON 文件
         if (!importFile) {
-          alert('请先选择文件')
+          alert('请先选择 JSON 文件')
           setImporting(false)
           return
         }
@@ -84,20 +92,30 @@ const Workers = ({ onNavigate }) => {
         try {
           workerData = JSON.parse(text)
         } catch (e) {
-          alert('文件格式错误，请确保是有效的JSON文件')
+          alert('文件内容不是有效的 JSON 格式')
           setImporting(false)
           return
         }
       }
 
+      // 统一为数组处理
       const workersToImport = Array.isArray(workerData) ? workerData : [workerData]
+      
+      // 逐个创建员工
+      let successCount = 0
       for (const worker of workersToImport) {
-        await axios.post('/api/workers', {
-          worker_type: worker.worker_type || worker.type || '未命名员工',
-          capabilities: worker.capabilities || []
-        })
+        try {
+          await axios.post('/api/workers', {
+            worker_type: worker.worker_type || worker.type || '未命名员工',
+            capabilities: worker.capabilities || []
+          })
+          successCount++
+        } catch (e) {
+          console.error(`导入员工失败: ${worker.worker_type || worker.type}`, e)
+        }
       }
-      alert(`成功导入 ${workersToImport.length} 个员工`)
+      
+      alert(`成功导入 ${successCount}/${workersToImport.length} 个员工`)
       setShowImportModal(false)
       setImportData('')
       setImportFile(null)
@@ -114,7 +132,7 @@ const Workers = ({ onNavigate }) => {
     const file = e.target.files[0]
     if (file) {
       setImportFile(file)
-      setImportMode('file')
+      setImportMode('file') // 选文件后自动切换到文件模式
     }
   }
 
@@ -286,29 +304,29 @@ const Workers = ({ onNavigate }) => {
               className="bg-gradient-to-br from-dark-800 to-dark-900 rounded-2xl p-6 w-full max-w-lg border border-dark-700 shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-white">导入员工</h2>
-                <button onClick={() => setShowImportModal(false)} className="p-2 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg transition-all">
+                <button onClick={() => { setShowImportModal(false); setImportData(''); setImportFile(null); setImportMode('json') }} className="p-2 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg transition-all">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="flex gap-3 mb-6">
                 <button
-                  onClick={() => setImportMode('json')}
+                  onClick={() => { setImportMode('json'); setImportFile(null) }}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all ${
                     importMode === 'json' 
                       ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg' 
-                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600 border border-dark-600'
                   }`}
                 >
                   <FileJson className="w-5 h-5" />
                   JSON文本
                 </button>
                 <button
-                  onClick={() => setImportMode('file')}
+                  onClick={() => { setImportMode('file'); setImportData('') }}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all ${
                     importMode === 'file' 
                       ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg' 
-                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600 border border-dark-600'
                   }`}
                 >
                   <Upload className="w-5 h-5" />
@@ -360,7 +378,7 @@ const Workers = ({ onNavigate }) => {
 
               <div className="flex gap-3 mt-6">
                 <button 
-                  onClick={() => { setShowImportModal(false); setImportData(''); setImportFile(null) }} 
+                  onClick={() => { setShowImportModal(false); setImportData(''); setImportFile(null); setImportMode('json') }} 
                   className="flex-1 px-4 py-3 bg-dark-700 text-dark-300 rounded-xl hover:bg-dark-600 transition-all"
                 >
                   取消
