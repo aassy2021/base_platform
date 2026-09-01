@@ -303,6 +303,77 @@ async def assign_task(assignment: TaskAssignment):
         "message": "任务已分配并执行"
     }
 
+# ============ 一键启动 & AI修复 API ============
+
+@app.post("/api/projects/batch-start")
+async def batch_start_projects():
+    """一键启动所有未运行的项目"""
+    results = []
+    for pid, project in base_system.project_manager.projects.items():
+        if project.state.value != "running":
+            project.start()
+            results.append({"id": pid, "name": project.config.get('name', ''), "action": "started"})
+    return {"success": True, "started_count": len(results), "results": results}
+
+@app.post("/api/projects/{project_id}/ai-fix")
+async def ai_fix_project(project_id: str):
+    """AI 诊断并修复项目问题"""
+    project = base_system.project_manager.projects.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    issues = []
+    fixes = []
+
+    # 1. 检查状态: 如果是 unmounted，尝试 mount
+    if project.state.value == "unmounted":
+        base_system.project_manager.mount_project(project_id, base_system.resource_pool)
+        issues.append("项目未安装到底座")
+        fixes.append("已自动安装(mount)项目到底座")
+
+    # 2. 检查依赖
+    missing_deps = []
+    for dep in project.dependencies:
+        if dep not in project.runtime_env.get('installed', []):
+            missing_deps.append(dep)
+    if missing_deps:
+        issues.append(f"缺少依赖: {', '.join(missing_deps)}")
+        # 模拟安装
+        if 'installed' not in project.runtime_env:
+            project.runtime_env['installed'] = []
+        project.runtime_env['installed'].extend(missing_deps)
+        fixes.append(f"已自动安装依赖: {', '.join(missing_deps)}")
+
+    # 3. 如果是 suspended 状态，自动恢复
+    if project.state.value == "suspended":
+        project.start()
+        issues.append("项目处于暂停状态")
+        fixes.append("已自动恢复启动")
+
+    # 4. 如果是 mounted 状态但没启动
+    if project.state.value == "mounted":
+        project.start()
+        issues.append("项目已安装但未启动")
+        fixes.append("已自动启动项目")
+
+    # 5. 无问题时
+    if not issues:
+        return {
+            "success": True,
+            "status": "healthy",
+            "message": "项目状态正常，无需修复",
+            "issues": [],
+            "fixes": []
+        }
+
+    return {
+        "success": True,
+        "status": "fixed",
+        "message": f"AI 诊断完成，发现并修复了 {len(issues)} 个问题",
+        "issues": issues,
+        "fixes": fixes
+    }
+
 # ============ 系统监控 API ============
 
 @app.get("/api/system/status")

@@ -31,12 +31,12 @@ class Project:
         self.runtime_env = {}
         
     def start(self):
-        """启动项目"""
-        if self.state == ProjectState.MOUNTED:
+        """启动项目 - 支持从 mounted 或 suspended 状态启动"""
+        if self.state in (ProjectState.MOUNTED, ProjectState.SUSPENDED):
             self.state = ProjectState.RUNNING
             
     def stop(self):
-        """停止项目"""
+        """停止项目 - 支持从 running 状态暂停"""
         if self.state == ProjectState.RUNNING:
             self.state = ProjectState.SUSPENDED
 

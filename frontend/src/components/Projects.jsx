@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, Play, Pause, FolderOpen, Loader2, Upload, FileJson, X, Check, Archive, FileCode } from 'lucide-react'
+import { Plus, Trash2, Play, Pause, FolderOpen, Loader2, Upload, FileJson, X, Check, Archive, FileCode, Zap, Wrench } from 'lucide-react'
 import axios from 'axios'
 
 const Projects = () => {
@@ -14,6 +14,8 @@ const Projects = () => {
   const [importFile, setImportFile] = useState(null)
   const [importing, setImporting] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [aiFixResult, setAiFixResult] = useState(null)
+  const [batchStarting, setBatchStarting] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => { fetchProjects() }, [])
@@ -124,6 +126,35 @@ const Projects = () => {
     if (file) setImportFile(file)
   }
 
+  const handleBatchStart = async () => {
+    setBatchStarting(true)
+    try {
+      const response = await axios.post('/api/projects/batch-start')
+      alert(`一键启动完成！已启动 ${response.data.started_count} 个项目`)
+      fetchProjects()
+    } catch (error) {
+      alert('一键启动失败: ' + (error.response?.data?.detail || error.message))
+    } finally {
+      setBatchStarting(false)
+    }
+  }
+
+  const handleAiFix = async (projectId) => {
+    try {
+      const response = await axios.post(`/api/projects/${projectId}/ai-fix`)
+      const { status, message, issues, fixes } = response.data
+      if (status === 'healthy') {
+        setAiFixResult({ projectId, type: 'success', message })
+      } else {
+        setAiFixResult({ projectId, type: 'fixed', message, issues, fixes })
+      }
+      fetchProjects()
+      setTimeout(() => setAiFixResult(null), 5000)
+    } catch (error) {
+      alert('AI 修复失败: ' + (error.response?.data?.detail || error.message))
+    }
+  }
+
   const getStateColor = (state) => {
     switch (state) {
       case 'running': return 'bg-green-500/20 text-green-400 border-green-500/30'
@@ -154,6 +185,11 @@ const Projects = () => {
           <p className="text-dark-400 mt-1">管理插入底座的项目 · 支持 zip 压缩包导入</p>
         </div>
         <div className="flex gap-3">
+          <button onClick={handleBatchStart} disabled={batchStarting}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all shadow-lg disabled:opacity-50">
+            {batchStarting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+            {batchStarting ? '启动中...' : '一键启动'}
+          </button>
           <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all shadow-lg">
             <Upload className="w-5 h-5" /> 导入项目
           </button>
@@ -201,6 +237,11 @@ const Projects = () => {
                     <Play className="w-4 h-4" /> 启动
                   </button>
                 )}
+                <button onClick={() => handleAiFix(project.id)}
+                  className="flex items-center justify-center gap-2 px-3 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg hover:bg-cyan-500/30 transition-colors border border-cyan-500/30"
+                  title="AI 诊断修复">
+                  <Wrench className="w-4 h-4" />
+                </button>
                 {confirmDeleteId === project.id ? (
                   <div className="flex gap-1">
                     <button onClick={() => handleDeleteProject(project.id)}
@@ -362,6 +403,35 @@ const Projects = () => {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI 修复结果提示 */}
+      <AnimatePresence>
+        {aiFixResult && (
+          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
+            className={`fixed bottom-6 right-6 max-w-md p-4 rounded-xl border shadow-2xl z-50 ${
+              aiFixResult.type === 'success'
+                ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
+            }`}>
+            <div className="flex items-start gap-3">
+              <Wrench className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">{aiFixResult.message}</p>
+                {aiFixResult.fixes && aiFixResult.fixes.length > 0 && (
+                  <ul className="mt-2 text-sm space-y-1 text-dark-300">
+                    {aiFixResult.fixes.map((fix, i) => (
+                      <li key={i}>✓ {fix}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <button onClick={() => setAiFixResult(null)} className="ml-2 text-dark-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
